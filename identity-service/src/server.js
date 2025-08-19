@@ -31,7 +31,7 @@ app.use(express.json());
 //logging middleware
 app.use((req, res, next) => {
   logger.info(`Received ${req.method} request for ${req.url}`);
-  logger.info(`Request body,  ${req.body}`);
+  logger.info(`Request body,  ${JSON.stringify(req.body)}`);
   next();
 });
 

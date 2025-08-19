@@ -1,6 +1,6 @@
 import Joi from "joi";
 
-const validateRegistration = (user) => {
+export const validateRegistration = (user) => {
   const schema = Joi.object({
     username: Joi.string().min(3).max(30).required(),
     email: Joi.string().email().required(),
@@ -11,4 +11,11 @@ const validateRegistration = (user) => {
   return schema.validate(user);
 };
 
-export default validateRegistration;
+export const validateLogin = (user) => {
+  const schema = Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(6).required(),
+  });
+  return schema.validate(user);
+};
+
