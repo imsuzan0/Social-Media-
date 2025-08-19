@@ -40,7 +40,7 @@ app.use(rateLimiter);
 //logging middleware
 app.use((req, res, next) => {
   logger.info(`Received ${req.method} request for ${req.url}`);
-  logger.info(`Request body,  ${req.body}`);
+  logger.info(`Request body,  ${JSON.stringify(req.body)}`);
   next();
 });
 
@@ -49,7 +49,7 @@ const proxyOptions = {
   proxyReqPathResolver: (req) => {
     return req.originalUrl.replace(/^\/v1/, "/api");
   },
-  proxyErrorHandler: (err,  res,next) => {
+  proxyErrorHandler: (err, res, next) => {
     logger.error(`Proxy error:${err.message}`);
     next(err);
   },
@@ -76,6 +76,8 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   logger.info(`API gateway is running on port ${PORT}`);
-  logger.info(`Identity service is running on port ${process.env.IDENTITY_SERVICE_URL}`);
+  logger.info(
+    `Identity service is running on port ${process.env.IDENTITY_SERVICE_URL}`
+  );
   logger.info(`Redis Url ${process.env.REDIS_URL}`);
 });
