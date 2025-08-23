@@ -4,7 +4,7 @@ import RefreshToken from "../models/RefreshToken.js";
 const generateToken = async (user) => {
   const accessToken = jwt.sign(
     { userId: user._id, username: user.username },
-    process.env.ACCESS_TOKEN_SECRET,
+    process.env.JWT_SECRET,
     { expiresIn: "15m" }
   );
   const refreshToken = crypto.randomBytes(40).toString("hex");
