@@ -1,6 +1,7 @@
-import logger from "../utils/logger.js";        // Custom logger utility
-import Post from "../models/Post.js";           // Mongoose Post model
-import { validateCreatePost } from "../utils/validation.js";  // Joi validation function
+import logger from "../utils/logger.js"; // Custom logger utility
+import Post from "../models/Post.js"; // Mongoose Post model
+import { validateCreatePost } from "../utils/validation.js"; // Joi validation function
+import { publishEvent } from "../utils/rabbitmq.js"; // RabbitMQ utility
 
 // ------------------------------
 // Helper: Invalidate Redis cache
@@ -39,7 +40,7 @@ export const createPost = async (req, res) => {
 
     // Create a new Post document in MongoDB
     const newPost = await Post.create({
-      user: req.user,          // User ID comes from middleware (x-user-id header)
+      user: req.user, // User ID comes from middleware (x-user-id header)
       title,
       mediaIds: mediaIds || [], // Default to empty array if not provided
     });
@@ -86,8 +87,8 @@ export const getAllPosts = async (req, res) => {
     // Otherwise → fetch from MongoDB
     const posts = await Post.find({})
       .sort({ createdAt: -1 }) // Sort by latest
-      .skip(startIndex)        // Skip previous pages
-      .limit(limit);           // Limit to current page size
+      .skip(startIndex) // Skip previous pages
+      .limit(limit); // Limit to current page size
 
     // Count total posts (for pagination info)
     const totalNoOfPosts = await Post.countDocuments();
@@ -107,7 +108,9 @@ export const getAllPosts = async (req, res) => {
     res.status(200).json(results);
   } catch (error) {
     logger.error("Error fetching all posts", error);
-    res.status(500).send({ success: false, message: "Error fetching all posts" });
+    res
+      .status(500)
+      .send({ success: false, message: "Error fetching all posts" });
   }
 };
 
@@ -117,7 +120,7 @@ export const getAllPosts = async (req, res) => {
 export const getPost = async (req, res) => {
   logger.info("Get post endpoint hit");
   try {
-    const postId = req.params.id;              // Extract postId from route
+    const postId = req.params.id; // Extract postId from route
     const cacheKey = `post:${postId}`;
 
     // Check Redis cache first
@@ -129,7 +132,9 @@ export const getPost = async (req, res) => {
     // If not in cache → fetch from DB
     const post = await Post.findById(postId);
     if (!post) {
-      return res.status(404).send({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .send({ success: false, message: "Post not found" });
     }
 
     // Save result in cache for 1 hour
@@ -139,7 +144,9 @@ export const getPost = async (req, res) => {
     res.status(200).json(post);
   } catch (error) {
     logger.error("Error fetching post by ID", error);
-    res.status(500).send({ success: false, message: "Error fetching post by ID" });
+    res
+      .status(500)
+      .send({ success: false, message: "Error fetching post by ID" });
   }
 };
 
@@ -159,14 +166,25 @@ export const deletePost = async (req, res) => {
 
     if (!post) {
       // Post not found or user not owner
-      return res.status(404).send({ success: false, message: "Post not found" });
+      return res
+        .status(404)
+        .send({ success: false, message: "Post not found" });
     }
+
+    //publish post delete message to rabbitmq
+    await publishEvent("post.deleted", {
+      postId: post._id.toString(),
+      userId: req.user,
+      mediaIds: post.mediaIds,
+    });
 
     // Invalidate Redis caches
     await invalidatePostCache(req, req.params.id);
 
     // Send success response
-    res.status(200).send({ success: true, message: "Post deleted successfully" });
+    res
+      .status(200)
+      .send({ success: true, message: "Post deleted successfully" });
   } catch (error) {
     logger.error("Error deleting post", error);
     res.status(500).send({ success: false, message: "Error deleting post" });
