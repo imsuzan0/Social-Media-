@@ -9,8 +9,10 @@ import { rateLimit } from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import Redis from "ioredis";
+import { connectRabbitMQ, consumeEvent } from "./utils/rabbitmq.js";
+import  {handlePostDeleted}  from "./eventHandlers/media-event-handler.js";
 
-const redisClient=new Redis(process.env.REDIS_URL);
+const redisClient = new Redis(process.env.REDIS_URL);
 dotenv.config();
 
 const app = express();
@@ -55,9 +57,25 @@ app.use("/api/media", mediaRoutes);
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`Media service is running on port ${PORT}`);
-});
+async function startServer() {
+  try {
+    await connectRabbitMQ();
+
+    //consume all the event 
+    await consumeEvent("post.deleted",handlePostDeleted)
+
+    app.listen(PORT, () => {
+      logger.info(`Media service is running on port ${PORT}`);
+    });
+  } catch (error) {
+    logger.error(
+      "Could not start server due to RabbitMQ connection failure",
+      error
+    );
+    process.exit(1);
+  }
+}
+startServer();
 
 process.on("unhandledRejection", (reason, promise) => {
   logger.error("Unhandled Rejection at ", promise, "reason:", reason);
